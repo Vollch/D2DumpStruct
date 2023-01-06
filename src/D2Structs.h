@@ -39,6 +39,7 @@
 *                                                                           *
 *****************************************************************************/
 
+struct D2BinFieldStrc;
 struct D2GameStrc;
 struct D2UnitStrc;
 
@@ -47,6 +48,15 @@ struct D2UnitStrc;
 * DEFINITIONS                                                               *
 *                                                                           *
 *****************************************************************************/
+
+struct D2BinFieldStrc
+{
+	char* szFieldName;              //0x00
+	D2C_TxtFieldTypes nFieldType;   //0x04
+	int32_t nFieldLength;           //0x08
+	int32_t nFieldOffset;           //0x0C
+	void* pLinkField;               //0x10
+};
 
 struct D2GameStrc
 {

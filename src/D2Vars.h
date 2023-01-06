@@ -29,11 +29,11 @@
 *                                                                           *
 *****************************************************************************/
 
-VAR(DWORD, SampleVariable1)
+VAR(FILE*, gpfBinStructs)
 
-VAR(void*, SampleVariable2)
-
-VAR(char, SampleVariable3[256])
+VAR(DWORD, dwRetAddr)
+VAR(DWORD, dwHookOffset)
+VAR(DWORD, dwStackOffset)
 
 // end of file ---------------------------------------------------------------
 #undef _D2VARS_H

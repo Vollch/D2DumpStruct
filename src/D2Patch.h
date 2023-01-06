@@ -32,14 +32,56 @@
 *                                                                           *
 *****************************************************************************/
 
-static const DLLPatchStrc gptTemplatePatches[] =
+//void* __stdcall DATATBLS_CompileTxt(void* pMemPool, const char* szName, D2BinFieldStrc* pTbl, int* pRecordCount, size_t dwSize);
+void __stdcall dumpStructs(void* pMemPool, const char* szName, D2BinFieldStrc* pTbl, int* pRecordCount, size_t dwSize)
 {
-    /*
-        All your patches should be added here
-        Keep it organized to save yourself some headache
-    */
-    
-    {D2DLL_INVALID} // this must be the last entry in the array!
+    if ( !gpfBinStructs )
+    {
+        gpfBinStructs = fopen("BinStructs.txt", "w");
+    }
+    if ( gpfBinStructs )
+    {
+        fprintf(gpfBinStructs, "%s\t%u\n", szName, dwSize);
+        while ( pTbl->nFieldType )
+        {
+            fprintf(gpfBinStructs, "%s\t%u\t%u\t%u\t%p\n", pTbl->szFieldName, pTbl->nFieldType, pTbl->nFieldLength, pTbl->nFieldOffset, pTbl->pLinkField);
+            pTbl++;
+        }
+        fprintf(gpfBinStructs, "%s\t%u\t%u\t%u\t%p\n\n\n", pTbl->szFieldName, pTbl->nFieldType, pTbl->nFieldLength, pTbl->nFieldOffset, pTbl->pLinkField);
+    }
+    return;
+}
+
+__declspec(naked) void CompileBinHook()
+{
+	__asm
+	{
+        pushfd; // save current state
+        pushad; // save current state
+
+        mov ebx, esp; // get initial stack pointer
+        add ebx, dwStackOffset; // add offset to the arguments of injected function
+
+        push [ebx+0x10]; // dwSize
+        push [ebx+0xC]; // pRecordCount
+        push [ebx+0x8]; // pTbl
+        push [ebx+0x4]; // szName
+        push [ebx]; // pMemPool
+        call dumpStructs; // call hook
+
+        popad; // restore pre-hook state
+        popfd; // restore pre-hook state
+        mov dword ptr ss:[esp+0x10], 0x0; // repeat original code overwritten by patch
+        jmp dwRetAddr; // jump back
+    }
+}
+
+static DLLPatchStrc gptTemplatePatches[] =
+{
+    {D2DLL_D2COMMON, 0x0, (DWORD)PATCH_JMP, FALSE, 0x1},
+    {D2DLL_D2COMMON, 0x1, (DWORD)CompileBinHook, TRUE, 0x0},
+    {D2DLL_D2COMMON, 0x5, 0x90, FALSE, 0x3},
+    {D2DLL_INVALID}
 };
 
 // end of file --------------------------------------------------------------

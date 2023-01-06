@@ -29,7 +29,7 @@
 
 void __fastcall D2TEMPLATE_FatalError(char* szMessage)
 {
-    MessageBoxA(NULL, szMessage, "D2Template", MB_OK | MB_ICONERROR);
+    MessageBoxA(NULL, szMessage, "D2DumpStruct", MB_OK | MB_ICONERROR);
     TerminateProcess(GetCurrentProcess(), -1);
 }
 
@@ -133,6 +133,28 @@ int __fastcall D2TEMPLATE_GetDebugPrivilege()
     return 1;
 }
 
+IMAGE_NT_HEADERS* GetHeader(LPBYTE pBase) {
+	if (pBase == NULL)
+		return NULL;
+
+	IMAGE_DOS_HEADER* pDosHeader = (IMAGE_DOS_HEADER*)pBase;
+
+	if (IsBadReadPtr(pDosHeader, sizeof(IMAGE_DOS_HEADER)))
+		return NULL;
+
+	if (pDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+		return NULL;
+
+	IMAGE_NT_HEADERS* pHeader = (IMAGE_NT_HEADERS*)(pBase + pDosHeader->e_lfanew);
+	if (IsBadReadPtr(pHeader, sizeof(IMAGE_NT_HEADERS)))
+		return NULL;
+
+	if (pHeader->Signature != IMAGE_NT_SIGNATURE)
+		return NULL;
+
+	return pHeader;
+}
+
 int __stdcall DllAttach()
 {
     D2TEMPLATE_GetDebugPrivilege();
@@ -150,7 +172,51 @@ int __stdcall DllAttach()
         return 0;
     }
 
-    D2TEMPLATE_ApplyPatch(hGame, gptTemplatePatches);
+    LPBYTE pBase = (LPBYTE) DLLBASE_D2COMMON;
+    if (pBase == NULL)
+    {
+        return 0;
+    }
+
+    IMAGE_NT_HEADERS* pHeader = GetHeader(pBase);
+    if (pHeader == NULL)
+    {
+        return 0;
+    }
+
+    if (pHeader->OptionalHeader.AddressOfEntryPoint == 0x00074D1D) { //109b
+        dwHookOffset = 0x75D1;
+        dwStackOffset = 0x248;
+    }
+    if (pHeader->OptionalHeader.AddressOfEntryPoint == 0x00074E2D) { //109d
+        dwHookOffset = 0x75D1;
+        dwStackOffset = 0x248;
+    }
+    if (pHeader->OptionalHeader.AddressOfEntryPoint == 0x000856DD) { //110f
+        dwHookOffset = 0xFD88;
+        dwStackOffset = 0x248;
+    }
+    if (pHeader->OptionalHeader.AddressOfEntryPoint == 0x00002C8D) { //111b
+        dwHookOffset = 0xE871;
+        dwStackOffset = 0x244;
+    }
+    if (pHeader->OptionalHeader.AddressOfEntryPoint == 0x00002C97) { //112a
+        dwHookOffset = 0x41E61;
+        dwStackOffset = 0x244;
+    }
+    if (pHeader->OptionalHeader.AddressOfEntryPoint == 0x00002C8F) { //113c
+        dwHookOffset = 0x5EF51;
+        dwStackOffset = 0x244;
+    }
+
+    if ( dwHookOffset )
+    {
+        dwRetAddr = gptDllFiles[D2DLL_D2COMMON].dwAddress + dwHookOffset + 0x08;
+        gptTemplatePatches[0].dwAddress += dwHookOffset;
+        gptTemplatePatches[1].dwAddress += dwHookOffset;
+        gptTemplatePatches[2].dwAddress += dwHookOffset;
+        D2TEMPLATE_ApplyPatch(hGame, gptTemplatePatches);
+    }
 
     return 1;
 }
@@ -162,6 +228,11 @@ int __stdcall DllMain(HINSTANCE hModule, DWORD dwReason, void* lpReserved)
         case DLL_PROCESS_ATTACH:
         {
             if (!DllAttach()) D2TEMPLATE_FatalError("Couldn't attach to Diablo II");
+            break;
+        }
+        case DLL_PROCESS_DETACH:
+        {
+            if (gpfBinStructs) fclose(gpfBinStructs);
             break;
         }
     }
